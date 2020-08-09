@@ -33,3 +33,6 @@ cmdline=cmdline.txt
 
 include syscfg.txt
 include usercfg.txt
+
+start_x=1
+
