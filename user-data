@@ -32,3 +32,4 @@ runcmd:
   - sudo ln -s /usr/bin/java /usr/bin/java8
   - sudo wget -O /greengrass/certs/root.ca.pem https://www.amazontrust.com/repository/AmazonRootCA1.pem
   - sudo systemctl enable greengrass.service
+  - touch /tmp/cloud-init-done
