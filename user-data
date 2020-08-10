@@ -13,6 +13,106 @@ system_info:
     ssh_authorized_keys:
       - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAdaHILstx0sODyqPFY2UwL//NEIQ7A1ju3hLmfd2BzC jason@Jasons-MacBook-Pro.local
 
+write_files:
+  - path: /home/iot/bootstrap.py
+    owner: root:root
+    permissions: '0755'
+    content: |
+        #!/usr/bin/env python3
+        import argparse
+        import os
+        import platform
+        import subprocess
+        import sys
+        import tarfile
+        import urllib.request
+
+        import yaml
+
+        if os.geteuid() != 0:
+            print("Run this command as root")
+            sys.exit(1)
+
+        # Parse command line arguments
+        parser = argparse.ArgumentParser(description="Bootstrap AWS Greengrass")
+        parser.add_argument("SETUP_ARCHIVE", type=str, help="Archive containing the IoT Core certificates")
+        args = parser.parse_args()
+
+        # Check that the setup file from AWS exists
+        assert os.path.isfile(args.SETUP_ARCHIVE), "SETUP_ARCHIVE is not a file"
+
+        # Identify the AWS Greengrass Docker archive, CA URL, and install location
+        DOWNLOAD_URL = os.environ.get(
+            "DOWNLOAD_URL",
+            "https://d1onfpft10uf5o.cloudfront.net/greengrass-core/downloads/1.10.2/aws-greengrass-docker-1.10.2.tar.gz"
+        )
+        CA_URL = os.environ.get(
+            "CA_URL",
+            "https://www.amazontrust.com/repository/AmazonRootCA1.pem"
+        )
+        INSTALL_PATH = os.environ.get(
+            "INSTALL_PATH",
+            "/srv/"
+        )
+
+        # Check that the install location is a valid directory
+        assert os.path.isdir(INSTALL_PATH), "Install location, {}, is not valid".format(INSTALL_PATH)
+
+        # Identify the system architecture
+        ARCHITECTURE = platform.uname()[-2]
+
+        # Identify the required files to build the docker image
+        FILES_LIST = {
+            "DOCKERFILE": "Dockerfile.alpine-{arch}".format(arch=ARCHITECTURE),
+            "DOCKER_COMPOSE": "docker-compose.alpine-{arch}.yml".format(arch=ARCHITECTURE.replace("_", "-")),
+            "ENTRYPOINT": "greengrass-entrypoint.sh",
+            "LICENSE": "greengrass-license-v1.pdf"
+        }
+
+        file = None
+        try:
+            # Download the AWS Greengrass archive to a temporary location
+            file, _ = urllib.request.urlretrieve(DOWNLOAD_URL)
+
+            # Untar the AWS Greengrass archive
+            with tarfile.open(file) as tar:
+                assert len(tar.members) == 1
+                base_path = os.path.join(INSTALL_PATH, tar.members[0].name)
+                files_to_extract = [m for m in tar.getmembers() if os.path.basename(m.name) in FILES_LIST.values()]
+                assert len(files_to_extract) == len(FILES_LIST)
+                for member in files_to_extract:
+                    tar.extract(member, INSTALL_PATH)
+
+            # Untar the setup files
+            with tarfile.open(args.SETUP_ARCHIVE) as tar:
+                tar.extractall(base_path)
+
+            # Get the root CA
+            urllib.request.urlretrieve(CA_URL, os.path.join(base_path, "certs", "root.ca.pem"))
+
+            # Create a log file location
+            os.mkdir(os.path.join(base_path, "log"), mode=0o755)
+
+            # Rebuild the docker-compose yaml file with updated configuration
+            docker_compose_yaml_path = os.path.join(base_path, FILES_LIST["DOCKER_COMPOSE"])
+            with open(docker_compose_yaml_path, "r") as docker_compose_yaml_file:
+                docker_compose_config = yaml.safe_load(docker_compose_yaml_file)
+            # Map the /dev/video0 device for camera access
+            docker_compose_config["services"]["greengrass"]["devices"] = ["/dev/video0:/dev/video0"]
+            # Always restart the AWS Greengrass container
+            docker_compose_config["services"]["greengrass"]["restart"] = "always"
+            # Save the new configuration
+            with open(os.path.join(base_path, "docker-compose.yml"), "w") as docker_compose_yaml_file:
+                yaml.safe_dump(docker_compose_config, docker_compose_yaml_file)
+
+            # Build and start the container
+            subprocess.Popen(["docker-compose", "up", "-d"], cwd=base_path)
+        finally:
+            # Cleanup the temporary file
+            if file is not None:
+                os.unlink(file)
+
+
 runcmd:
   - sudo apt-get install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
