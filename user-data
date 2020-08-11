@@ -16,7 +16,6 @@ system_info:
 runcmd:
   - sudo adduser --system ggc_user
   - sudo addgroup --system ggc_group
-  - sudo usermod -a -G video ggc_user
   - sudo add-apt-repository -y ppa:deadsnakes/ppa
   - curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
   - wget -O /tmp/aws-iot-greengrass-keyring.deb https://d1onfpft10uf5o.cloudfront.net/greengrass-apt/downloads/aws-iot-greengrass-keyring.deb
