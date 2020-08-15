@@ -26,6 +26,7 @@ packages:
   - pkg-config                       # Build tool
   - libgstreamer-plugins-bad1.0-dev  # Video streaming tool
   - gstreamer1.0-plugins-good        # Video streaming tool
+  - gstreamer1.0-plugins-ugly        # Video streaming tool
   - gstreamer1.0-tools               # Video streaming tool
   - openjdk-8-jdk                    # AWS Lambda runtime
   - python2                          # AWS Lambda runtime
