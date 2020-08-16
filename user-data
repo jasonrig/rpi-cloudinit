@@ -21,6 +21,7 @@ apt:
       source: "ppa:deadsnakes/ppa"
 
 packages:
+  - mosh                             # Mobile Shell tool
   - cmake                            # Build tool
   - m4                               # Build tool
   - pkg-config                       # Build tool
