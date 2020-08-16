@@ -37,25 +37,43 @@ packages:
   - python3-pip                      # AWS Lambda runtime
   - libssl-dev                       # OpenCV build dependency
   - libffi-dev                       # OpenCV build dependency
+  - liblog4cplus-dev                 # AWS Kinesis Video Streams SDK dependency
+  - libcurl4-openssl-dev             # AWS Kinesis Video Streams SDK dependency
 
 runcmd:
+  # Build AWS Kinesis Video Streams SDK
+  - git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git /tmp/amazon-kinesis-video-streams-producer-sdk
+  - mkdir /usr/local/amazon-kinesis
+  - cd /usr/local/amazon-kinesis && cmake /tmp/amazon-kinesis-video-streams-producer-sdk -DBUILD_GSTREAMER_PLUGIN=ON -DBUILD_DEPENDENCIES=OFF && make -j4
+  
+  # Set up GGC user and group
   - sudo adduser --system ggc_user
   - sudo addgroup --system ggc_group
+  
+  # Install node.JS
   - curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+  - apt-get install -y nodejs
+  
+  # Install AWS IoT Greengrass Core
   - wget -O /tmp/aws-iot-greengrass-keyring.deb https://d1onfpft10uf5o.cloudfront.net/greengrass-apt/downloads/aws-iot-greengrass-keyring.deb
-  - sudo dpkg -i /tmp/aws-iot-greengrass-keyring.deb
+  - dpkg -i /tmp/aws-iot-greengrass-keyring.deb
   - echo "deb https://dnw9lb6lzp2d8.cloudfront.net stable main" | sudo tee /etc/apt/sources.list.d/greengrass.list
-  - sudo apt update
-  - sudo apt install -y aws-iot-greengrass-core nodejs
-  - sudo python3.7 -m pip install --no-cache-dir -U pip
-  - sudo python3.8 -m pip install --no-cache-dir -U pip
-  - sudo python3.7 -m pip install --no-cache-dir -U scikit-build
-  - sudo python3.8 -m pip install --no-cache-dir -U scikit-build
-  - sudo python3.7 -m pip install --no-cache-dir opencv-python
-  - sudo python3.8 -m pip install --no-cache-dir opencv-python
-  - sudo ln -s /usr/bin/node /usr/bin/nodejs
-  - sudo ln -s /usr/bin/node /usr/bin/nodejs12.x
-  - sudo ln -s /usr/bin/java /usr/bin/java8
-  - sudo wget -O /greengrass/certs/root.ca.pem https://www.amazontrust.com/repository/AmazonRootCA1.pem
-  - sudo systemctl enable greengrass.service
-  - touch /tmp/cloud-init-done
+  - apt-get update
+  - apt-get install -y aws-iot-greengrass-core
+  - wget -O /greengrass/certs/root.ca.pem https://www.amazontrust.com/repository/AmazonRootCA1.pem
+  
+  # Install Python libraries
+  - python3.7 -m pip install --no-cache-dir -U pip
+  - python3.8 -m pip install --no-cache-dir -U pip
+  - python3.7 -m pip install --no-cache-dir -U scikit-build
+  - python3.8 -m pip install --no-cache-dir -U scikit-build
+  - python3.7 -m pip install --no-cache-dir opencv-python
+  - python3.8 -m pip install --no-cache-dir opencv-python
+  
+  # Create symlinks to AWS Lambda runtimes
+  - ln -s /usr/bin/node /usr/bin/nodejs
+  - ln -s /usr/bin/node /usr/bin/nodejs12.x
+  - ln -s /usr/bin/java /usr/bin/java8
+  
+  # Enable the AWS IoT Greengrass Core service
+  - systemctl enable greengrass.service
